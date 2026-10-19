@@ -6,16 +6,26 @@
 
 use crate::curve::{self, Point};
 use crate::error::Error;
-use crate::shamir;
+use crate::shamir::{self, FeldmanCommitments};
 use num_bigint::BigUint;
 use num_traits::Zero;
 
 /// What a single party holds after key generation.
+///
+/// `public_shares` holds the public image `x_j * G` of every party's share (entry `j-1` for
+/// party `j`): it is public and lets anyone check proofs about shares.
 #[derive(Debug, Clone)]
 pub struct KeyShare {
     pub index: usize,
     pub secret_share: BigUint,
     pub public_key: Point,
+    pub public_shares: Vec<Point>,
+}
+
+impl KeyShare {
+    pub fn public_share_of(&self, index: usize) -> &Point {
+        &self.public_shares[index - 1]
+    }
 }
 
 pub fn run(threshold: usize, parties: usize) -> Result<Vec<KeyShare>, Error> {
@@ -42,10 +52,21 @@ pub fn run(threshold: usize, parties: usize) -> Result<Vec<KeyShare>, Error> {
         secret_shares.push(curve::mod_n(&sum));
     }
 
-    // The group public key is the sum of each dealer's constant-term commitment.
-    let public_key = dealings.iter().fold(Point::Infinity, |acc, d| {
-        acc.add(d.commitments.public_key())
-    });
+    // Summing every dealer's commitments coefficient-wise gives commitments to the group polynomial.
+    // Its constant term is the group public key, and evaluating it at i gives party i's public share.
+    let group_commitments = FeldmanCommitments {
+        coefficients: (0..threshold)
+            .map(|j| {
+                dealings.iter().fold(Point::Infinity, |acc, d| {
+                    acc.add(&d.commitments.coefficients[j])
+                })
+            })
+            .collect(),
+    };
+    let public_key = group_commitments.public_key().clone();
+    let public_shares: Vec<Point> = (1..=parties)
+        .map(|i| shamir::public_share(i, &group_commitments))
+        .collect();
 
     Ok(secret_shares
         .into_iter()
@@ -54,6 +75,7 @@ pub fn run(threshold: usize, parties: usize) -> Result<Vec<KeyShare>, Error> {
             index: i + 1,
             secret_share,
             public_key: public_key.clone(),
+            public_shares: public_shares.clone(),
         })
         .collect())
 }

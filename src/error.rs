@@ -11,6 +11,10 @@ pub enum Error {
     DuplicateIndices,
     /// Signing needs at least `2t-1` signers.
     TooFewSigners { required: usize },
+    /// A signer sent a message whose proof does not verify: the culprit is identified.
+    SigningAbort { party: usize, step: &'static str },
+    /// The random values made the signature degenerate (r, k*w or s is zero): retry with fresh ones.
+    DegenerateNonce,
     /// A recipient found an invalid share from a dealer during the DKG.
     DkgComplaint { dealer: usize, recipient: usize },
 }
@@ -23,6 +27,10 @@ impl fmt::Display for Error {
             Error::TooFewSigners { required } => {
                 write!(f, "at least {required} signers are required")
             }
+            Error::SigningAbort { party, step } => {
+                write!(f, "party {party} sent an invalid {step}")
+            }
+            Error::DegenerateNonce => write!(f, "degenerate nonce, retry with fresh randomness"),
             Error::DkgComplaint { dealer, recipient } => {
                 write!(
                     f,

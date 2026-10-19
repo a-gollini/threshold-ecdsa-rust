@@ -53,6 +53,11 @@ pub fn inverse(value: &BigUint) -> BigUint {
     mod_n(value).modpow(&(order() - 2u32), order())
 }
 
+/// Interprets (at most the first 32 bytes of) a hash as a scalar.
+pub fn hash_to_scalar(digest: &[u8]) -> BigUint {
+    mod_n(&BigUint::from_bytes_be(&digest[..digest.len().min(32)]))
+}
+
 /// Uniform random scalar in [1, n-1] using the OS CSPRNG (rejection sampling).
 pub fn random_scalar() -> BigUint {
     let mut buffer = [0u8; 32];
@@ -81,6 +86,20 @@ impl Point {
 
     pub fn add(&self, other: &Point) -> Point {
         Jacobian::from(self).add(&Jacobian::from(other)).into()
+    }
+
+    pub fn neg(&self) -> Point {
+        match self {
+            Point::Infinity => Point::Infinity,
+            Point::Affine { x, y } => Point::Affine {
+                x: x.clone(),
+                y: (&*P - y) % &*P,
+            },
+        }
+    }
+
+    pub fn sub(&self, other: &Point) -> Point {
+        self.add(&other.neg())
     }
 
     /// SEC1 compressed encoding (33 bytes); `None` for the point at infinity.

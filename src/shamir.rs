@@ -58,13 +58,18 @@ pub fn deal(secret: &BigUint, threshold: usize, parties: usize) -> Result<DealtS
 
 /// Checks s_i * G == sum_j (i^j * C_j).
 pub fn verify(share: &Share, commitments: &FeldmanCommitments) -> bool {
-    let mut expected = commitments.coefficients[0].clone();
+    curve::multiply_base(&share.value) == public_share(share.index, commitments)
+}
+
+/// The public image of party i's share, sum_j (i^j * C_j) = f(i) * G, computable by anyone.
+pub fn public_share(index: usize, commitments: &FeldmanCommitments) -> Point {
+    let mut result = commitments.coefficients[0].clone();
     let mut power = BigUint::from(1u8);
     for commitment in &commitments.coefficients[1..] {
-        power = curve::mul_n(&power, &BigUint::from(share.index));
-        expected = expected.add(&curve::multiply(commitment, &power));
+        power = curve::mul_n(&power, &BigUint::from(index));
+        result = result.add(&curve::multiply(commitment, &power));
     }
-    curve::multiply_base(&share.value) == expected
+    result
 }
 
 pub fn reconstruct(shares: &[Share]) -> Result<BigUint, Error> {
