@@ -5,6 +5,7 @@ pub mod curve;
 pub mod dkg;
 pub mod dleq;
 pub mod error;
+pub mod schnorr;
 pub mod session;
 pub mod shamir;
 pub mod signer;

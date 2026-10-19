@@ -15,6 +15,8 @@ pub enum Error {
     SigningAbort { party: usize, step: &'static str },
     /// The random values made the signature degenerate (r, k*w or s is zero): retry with fresh ones.
     DegenerateNonce,
+    /// A dealer's broadcast is malformed or its proof of knowledge does not verify.
+    DkgInvalidDealing { dealer: usize, reason: &'static str },
     /// A recipient found an invalid share from a dealer during the DKG.
     DkgComplaint { dealer: usize, recipient: usize },
 }
@@ -31,6 +33,9 @@ impl fmt::Display for Error {
                 write!(f, "party {party} sent an invalid {step}")
             }
             Error::DegenerateNonce => write!(f, "degenerate nonce, retry with fresh randomness"),
+            Error::DkgInvalidDealing { dealer, reason } => {
+                write!(f, "party {dealer} sent an invalid dealing: {reason}")
+            }
             Error::DkgComplaint { dealer, recipient } => {
                 write!(
                     f,
